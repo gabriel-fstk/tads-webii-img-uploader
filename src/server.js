@@ -24,9 +24,18 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 app.use(express.urlencoded({ extended: true }));
 
 let images = [];
+
 if (fs.existsSync(IMAGES_FILE)) {
-  images = JSON.parse(fs.readFileSync(IMAGES_FILE));
-}
+    try {
+      const raw = fs.readFileSync(IMAGES_FILE, 'utf-8');
+      images = raw.trim() ? JSON.parse(raw) : [];
+    } catch (err) {
+      console.error("Erro ao ler images.json:", err.message);
+      images = [];
+    }
+}else
+    fs.writeFileSync(IMAGES_FILE, '[]');  
+
 const saveImages = () => fs.writeFileSync(IMAGES_FILE, JSON.stringify(images, null, 2));
 const IMAGES_PER_PAGE = 6;
 
@@ -53,14 +62,16 @@ app.post('/upload', (req, res) => {
   form.parse(req, (err, fields, files) => {
     if (err) return res.status(400).send('Erro no upload: ' + err.message);
 
-    const file = files.photo;
+    const file = files.photo?.[0];
     const title = fields.title || '';
 
     if (!file) return res.status(400).send('Arquivo não enviado.');
 
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (!validTypes.includes(file.mimetype)) {
-      fs.unlinkSync(file.filepath);
+    const validTypes = ['image/jpg', 'image/jpeg', 'image/png', 'image/gif'];
+    console.log('Tipo de arquivo:', file.mimetype);
+    if (!validTypes.includes(file.mimetype?.toLowerCase())) {
+        if (file.filepath)
+            fs.unlinkSync(file.filepath);
       return res.status(400).send('Formato de imagem inválido. Use JPG, PNG ou GIF.');
     }
 
